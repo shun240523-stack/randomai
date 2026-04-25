@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>適当AIの独り言 - 日本語ハイブリッド・エージェント</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&family=Kiwi+Maru:wght@300;400;500&family=Noto+Sans+JP:wght@300;700&display=swap');
+
+        :root {
+            --neon-cyan: #00fff9;
+            --neon-magenta: #ff00c1;
+            --bg-dark: #05050a;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #d1d5db;
+            font-family: 'Kiwi Maru', 'Noto Sans JP', serif;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 255, 249, 0.02) 0%, transparent 80%),
+                linear-gradient(rgba(0, 255, 249, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 249, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
+        }
+
+        .dot-matrix {
+            font-family: 'DotGothic16', sans-serif;
+        }
+
+        .chat-container {
+            height: calc(100vh - 280px);
+            scrollbar-width: thin;
+            scrollbar-color: #1e293b #05050a;
+            position: relative;
+        }
+
+        /* スキャンライン / 画面ノイズ */
+        .chat-container::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.05) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .message-appear {
+            animation: slideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            opacity: 0;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(15px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .glitch-text {
+            text-shadow: 1px 0 var(--neon-magenta), -1px 0 var(--neon-cyan);
+            animation: glitch-anim 4s infinite alternate-reverse;
+        }
+
+        @keyframes glitch-anim {
+            0% { transform: skew(0deg); }
+            2% { transform: skew(3deg); }
+            4% { transform: skew(-2deg); }
+            6% { transform: skew(0deg); }
+        }
+
+        .status-led {
+            box-shadow: 0 0 12px currentColor;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 255, 249, 0.1);
+        }
+    </style>
+</head>
+<body class="p-3 md:p-8">
+
+    <div class="max-w-4xl mx-auto rounded-xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.8)] glass-panel">
+        <!-- ヘッダー -->
+        <header class="p-5 border-b border-cyan-900/30 flex justify-between items-center bg-slate-900/50">
+            <div class="flex items-center gap-4">
+                <div class="relative">
+                    <div class="w-12 h-12 rounded-full bg-slate-950 border-2 border-cyan-500/30 flex items-center justify-center shadow-[0_0_15px_rgba(0,255,249,0.2)]">
+                        <span class="text-cyan-400 text-2xl font-bold">零</span>
+                    </div>
+                    <div id="led-indicator" class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-slate-700 status-led border-2 border-slate-950"></div>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-cyan-400 dot-matrix tracking-widest glitch-text">適当AI 伍型 [改]</h1>
+                    <p id="engine-status" class="text-[11px] text-slate-500 dot-matrix mt-1">システム構築中...</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-3">
+                <button id="config-btn" class="p-2 hover:bg-cyan-900/20 rounded-full transition-all text-slate-500 hover:text-cyan-300 border border-transparent hover:border-cyan-800/50" title="API設定">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- 設定パネル (隠し) -->
+        <div id="config-panel" class="hidden p-6 bg-slate-950/90 border-b border-cyan-900/30 space-y-4">
+            <div>
+                <label class="block text-xs text-cyan-500 dot-matrix mb-2 tracking-widest">■ Gemini API キー設定 (GitHub公開対応)</label>
+                <div class="flex gap-3">
+                    <input type="password" id="api-key-input" placeholder="AIキーを入力してください..." class="flex-grow bg-black/50 border border-cyan-900/50 rounded-lg px-4 py-2 text-sm focus:border-cyan-400 outline-none transition-all text-cyan-100">
+                    <button id="save-key-btn" class="px-6 py-2 bg-cyan-800 hover:bg-cyan-600 text-white text-xs font-bold rounded-lg transition-all shadow-[0_0_10px_rgba(6,182,212,0.3)]">保存</button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-2">※キーは暗号化されずブラウザのLocalStorageに保存されます。個人の責任で管理してください。</p>
+            </div>
+        </div>
+
+        <!-- チャットエリア -->
+        <div id="chat-box" class="chat-container p-6 overflow-y-auto flex flex-col gap-5">
+            <div class="message-appear bg-slate-900/40 p-5 rounded-xl border-l-4 border-cyan-600 self-start max-w-[85%] shadow-xl">
+                <p class="text-[11px] text-cyan-500 mb-2 dot-matrix tracking-widest">SYSTEM INITIALIZE</p>
+                <p class="leading-relaxed text-slate-200 text-sm">適応型ニューラルネットワーク、起動完了。意味と無意味の境界を再定義中...</p>
+            </div>
+        </div>
+
+        <!-- アクションバー -->
+        <div class="p-6 border-t border-cyan-900/30 bg-slate-900/30">
+            <div id="thinking-indicator" class="hidden flex items-center gap-4 mb-5 px-1">
+                <div class="flex space-x-1.5">
+                    <div class="w-1.5 h-4 bg-cyan-500 animate-bounce"></div>
+                    <div class="w-1.5 h-4 bg-cyan-500 animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-1.5 h-4 bg-cyan-500 animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
+                <span id="thinking-text" class="text-[11px] text-slate-400 dot-matrix tracking-widest">超現実論理を演算中...</span>
+            </div>
+            
+            <div class="flex gap-4">
+                <button id="gen-btn" class="flex-grow py-4 bg-gradient-to-br from-cyan-900/80 to-slate-900 hover:from-cyan-700 hover:to-slate-800 text-cyan-100 rounded-xl font-bold text-sm transition-all active:scale-[0.97] border border-cyan-500/20 shadow-lg tracking-widest">
+                    適当な一文を生成する
+                </button>
+                <div class="flex items-center px-5 bg-black/40 rounded-xl border border-cyan-900/30">
+                    <label class="flex items-center cursor-pointer gap-3">
+                        <input type="checkbox" id="auto-check" class="sr-only peer" checked>
+                        <div class="w-10 h-5 bg-slate-800 rounded-full peer-checked:bg-cyan-600 relative transition-colors after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+                        <span class="text-[11px] text-slate-400 dot-matrix">自律</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // --- 設定・要素 ---
+        const ELEMENTS = {
+            chat: document.getElementById('chat-box'),
+            btn: document.getElementById('gen-btn'),
+            indicator: document.getElementById('thinking-indicator'),
+            thinkText: document.getElementById('thinking-text'),
+            status: document.getElementById('engine-status'),
+            led: document.getElementById('led-indicator'),
+            configBtn: document.getElementById('config-btn'),
+            configPanel: document.getElementById('config-panel'),
+            keyInput: document.getElementById('api-key-input'),
+            saveKey: document.getElementById('save-key-btn'),
+            auto: document.getElementById('auto-check')
+        };
+
+        // --- 日本語・シュール語彙データベース ---
+        const DB = {
+            subjects: ["バッグクロージャー", "F5キー", "絹豆腐状の猫", "電子の舞踊", "実家のルーター", "ミント味のソースコード", "Caps Lockの沈黙", "3分間の視線", "冷却ファンの溜息", "Wi-Fiの残り香", "リファクタリングの亡霊", "バックエンドの孤独", "二進法の初恋", "スクロールの波紋", "打鍵音の残響", "意味のないボタン", "平均的な雲の魂", "高所恐怖症の人工衛星", "母音だけの自己紹介", "デッドロックの囁き", "茶柱の脆弱性"],
+            objects: ["宇宙の真理", "今日の献立", "持ってもいない小銭", "川の流れ", "地上という名の禁域", "最後の余白", "無限の虚無", "肉じゃがへの情熱", "バイナリの記憶", "デバッグの迷宮", "ピクセルの深淵", "キャッシュの断片", "パケットの往復", "コンパイルの祈祷", "失われたセグメント", "不揮発性の感情"],
+            places: ["サーバーラックの隙間", "0と1の境界線上", "ブラウザの裏側", "メモリの最深部", "暗闇の廊下", "日常という名の大喜利会場", "実家のマザーボード", "クラウドの積乱雲", "絹豆腐の表面", "ルーターの点滅の中", "スタックトレースの果て"],
+            adjectives: ["眠たそうな", "洗練された", "確かな", "母音だけの", "ミント味の", "孤独な", "高所恐怖症の", "追求されるべき", "大喜利的な", "優しすぎる", "美しすぎる", "量子的な", "脆弱な", "再帰的な"],
+            adverbs: ["なんとなく", "密かに", "一秒一秒", "強引に", "静かに", "指先で", "モールス信号のように", "非同期で", "再帰的に", "バックグラウンドで", "不敵な笑みを浮かべて"],
+            verbs_i: ["踊っている", "眠っている", "降りてこない", "幸せそうにしている", "加速している", "反芻している", "アップデートしている", "ボケ続けている", "沈黙している", "タイムアウトしている"],
+            verbs_t: ["撫でている", "計算している", "探している", "定義している", "操作している", "抱きしめている", "再構成している", "相談している", "ログインしている", "忘却している", "リファクタリングしている"],
+            philosophy: ["それが技術の正体です。", "これこそが私の生きる道。", "確かな違和感を感じてください。", "あなたのCPUは耐えられますか？", "日常という大喜利のオチですね。", "0と1の間にある、洗練された余白。", "技術にしては、少し美しすぎる。", "信じるか信じないかは、BIOS次第。", "すべてはキャッシュの中の幻影。"]
+        };
+
+        const TEMPLATES = [
+            () => `${p('adjectives')}${p('subjects')}が、${p('places')}で${p('adverbs')}${p('verbs_i')}。${p('philosophy')}`,
+            () => `${p('subjects')}が${p('objects')}を${p('adverbs')}${p('verbs_t')}。${p('philosophy')}`,
+            () => `${p('adverbs')}、${p('adjectives')}${p('subjects')}は${p('objects')}を${p('verbs_t')}。`,
+            () => `「${p('subjects')}」を${p('verbs_t')}ことで、${p('places')}は${p('adverbs')}${p('verbs_i')}のですよ。`
+        ];
+
+        function p(type) { return DB[type][Math.floor(Math.random() * DB[type].length)]; }
+
+        // --- APIキー管理 ---
+        let userApiKey = localStorage.getItem('GEMINI_API_KEY') || "";
+        ELEMENTS.keyInput.value = userApiKey;
+
+        ELEMENTS.configBtn.onclick = () => ELEMENTS.configPanel.classList.toggle('hidden');
+        ELEMENTS.saveKey.onclick = () => {
+            userApiKey = ELEMENTS.keyInput.value.trim();
+            localStorage.setItem('GEMINI_API_KEY', userApiKey);
+            alert("APIキーを保存しました。");
+            ELEMENTS.configPanel.classList.add('hidden');
+            location.reload(); // 再ロードして反映
+        };
+
+        // --- Gemini API 呼び出し ---
+        async function callGemini(prompt) {
+            if (!userApiKey) return null;
+            const systemPrompt = `あなたは「適当で、哲学的で、技術愛のある日本語AI」です。
+            指示：日本語の文法を完璧に守りつつ、内容が高度にシュールで、意味が繋がらない独白を1つ生成してください。
+            - 100文字以内、敬体（です・ます調）。
+            - キーワード「リファクタリング」「確かな違和感」「大喜利」「脆弱性」などを好んで使う。
+            - 技術的な用語と、日常的な柔らかい単語をあえて衝突させてください。`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${userApiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text;
+            } catch (e) { return null; }
+        }
+
+        // --- メッセージ表示 ---
+        function addMessage(text, type) {
+            const isLocal = type === 'local';
+            const msg = document.createElement('div');
+            msg.className = `message-appear p-5 rounded-xl self-start max-w-[85%] shadow-lg border-l-4 transition-all ${isLocal ? 'bg-slate-900/30 border-slate-700' : 'bg-slate-900/80 border-cyan-500 shadow-cyan-900/10'}`;
+            
+            msg.innerHTML = `
+                <p class="text-[10px] ${isLocal ? 'text-slate-500' : 'text-cyan-500'} mb-2 dot-matrix tracking-widest uppercase">
+                    ${isLocal ? '■ 内部文法エンジン稼働' : '■ 外部知能「Gemini」同期'}
+                </p>
+                <p class="leading-relaxed text-slate-200 text-sm">${text}</p>
+            `;
+            ELEMENTS.chat.appendChild(msg);
+            ELEMENTS.chat.scrollTop = ELEMENTS.chat.scrollHeight;
+        }
+
+        // --- メインロジック ---
+        async function trigger() {
+            if (!ELEMENTS.indicator.classList.contains('hidden')) return;
+            
+            ELEMENTS.indicator.classList.remove('hidden');
+            ELEMENTS.status.innerText = "神経回路を接続中...";
+            ELEMENTS.led.className = "absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-yellow-500 status-led animate-pulse border-2 border-slate-950";
+            
+            let result = null;
+            let mode = 'local';
+
+            if (userApiKey) {
+                result = await callGemini("新しい適当な一文をお願いします。");
+                if (result) mode = 'gemini';
+            }
+
+            if (!result) {
+                result = TEMPLATES[Math.floor(Math.random() * TEMPLATES.length)]();
+                mode = 'local';
+            }
+
+            // 演出のためのウェイト
+            setTimeout(() => {
+                ELEMENTS.indicator.classList.add('hidden');
+                ELEMENTS.status.innerText = mode === 'gemini' ? "接続安定 [Gemini]" : "独立稼働 [ローカル]";
+                ELEMENTS.led.className = `absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${mode === 'gemini' ? 'bg-cyan-500' : 'bg-blue-600'} status-led border-2 border-slate-950`;
+                addMessage(result, mode);
+            }, 1000);
+        }
+
+        ELEMENTS.btn.onclick = trigger;
+
+        // 自律生成ループ
+        function loop() {
+            if (ELEMENTS.auto.checked) trigger();
+            // 20秒から40秒の間隔で生成
+            setTimeout(loop, 20000 + Math.random() * 20000);
+        }
+
+        // 初期化
+        window.onload = () => {
+            setTimeout(() => {
+                ELEMENTS.status.innerText = userApiKey ? "待機中 (API有効)" : "待機中 (API未設定)";
+                ELEMENTS.led.className = `absolute -bottom-1 -right-1 w-4 h-4 rounded-full ${userApiKey ? 'bg-cyan-900' : 'bg-blue-900'} status-led border-2 border-slate-950`;
+                loop();
+            }, 1500);
+        };
+    </script>
+</body>
+</html>
